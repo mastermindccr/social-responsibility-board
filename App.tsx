@@ -532,6 +532,41 @@ export default function App() {
   const [newComment, setNewComment] = useState('');
   const [reportReason, setReportReason] = useState('');
 
+  const ensureSepoliaChain = async () => {
+    if (!window.ethereum) return;
+    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+    if (chainId !== SEPOLIA_CHAIN_ID) {
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: SEPOLIA_CHAIN_ID }],
+        });
+      } catch (switchError: any) {
+        // This error code indicates that the chain has not been added to MetaMask.
+        if (switchError.code === 4902) {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [
+              {
+                chainId: SEPOLIA_CHAIN_ID,
+                chainName: 'Sepolia',
+                nativeCurrency: {
+                  name: 'Sepolia Ether',
+                  symbol: 'SEP',
+                  decimals: 18,
+                },
+                rpcUrls: ['https://rpc.sepolia.org'],
+                blockExplorerUrls: ['https://sepolia.etherscan.io'],
+              },
+            ],
+          });
+        } else {
+          throw switchError;
+        }
+      }
+    }
+  };
+
   const connectWallet = async () => {
     setError(null);
     if (window.ethereum) {
@@ -539,37 +574,7 @@ export default function App() {
         setLoading(true);
 
         // Switch to Sepolia
-        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-        if (chainId !== SEPOLIA_CHAIN_ID) {
-          try {
-            await window.ethereum.request({
-              method: 'wallet_switchEthereumChain',
-              params: [{ chainId: SEPOLIA_CHAIN_ID }],
-            });
-          } catch (switchError: any) {
-            // This error code indicates that the chain has not been added to MetaMask.
-            if (switchError.code === 4902) {
-              await window.ethereum.request({
-                method: 'wallet_addEthereumChain',
-                params: [
-                  {
-                    chainId: SEPOLIA_CHAIN_ID,
-                    chainName: 'Sepolia',
-                    nativeCurrency: {
-                      name: 'Sepolia Ether',
-                      symbol: 'SEP',
-                      decimals: 18,
-                    },
-                    rpcUrls: ['https://rpc.sepolia.org'],
-                    blockExplorerUrls: ['https://sepolia.etherscan.io'],
-                  },
-                ],
-              });
-            } else {
-              throw switchError;
-            }
-          }
-        }
+        await ensureSepoliaChain();
 
         const provider = new ethers.BrowserProvider(window.ethereum);
         const signer = await provider.getSigner();
@@ -627,6 +632,7 @@ export default function App() {
     if (!newPostTitle || !newPostContent) return;
     try {
       setLoading(true);
+      await ensureSepoliaChain();
       const contract = await getContract(true);
       const dueDateTimestamp = newPostDate ? Math.floor(new Date(newPostDate).getTime() / 1000) : 0;
       const tx = await contract.createPost(newPostTitle, newPostContent, dueDateTimestamp);
@@ -665,6 +671,7 @@ export default function App() {
     if (!selectedPost || !newComment) return;
     try {
       setLoading(true);
+      await ensureSepoliaChain();
       const contract = await getContract(true);
       const tx = await contract.addComment(selectedPost.id, newComment);
       await tx.wait();
@@ -682,6 +689,7 @@ export default function App() {
     if (!selectedPost || !reportReason) return;
     try {
       setLoading(true);
+      await ensureSepoliaChain();
       const contract = await getContract(true);
       const tx = await contract.reportPost(selectedPost.id, reportReason);
       await tx.wait();
