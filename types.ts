@@ -22,6 +22,10 @@ export interface Report {
   reporter: string;
   reason: string;
   createdAt: bigint;
+  amountStaked: bigint;
+  supportVotes: bigint;
+  rejectVotes: bigint;
+  isResolved: boolean;
 }
 
 // Global window extension for Ethereum

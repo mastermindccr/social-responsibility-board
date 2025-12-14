@@ -330,6 +330,8 @@ const PostDetailView = ({
   newComment,
   setNewComment,
   submitComment,
+  voteOnReport,
+  resolveReport,
   loading
 }: {
   selectedPost: Post | null,
@@ -341,6 +343,8 @@ const PostDetailView = ({
   newComment: string,
   setNewComment: (v: string) => void,
   submitComment: () => void,
+  voteOnReport: (idx: number, support: boolean) => void,
+  resolveReport: (idx: number) => void,
   loading: boolean
 }) => {
   if (!selectedPost) return null;
@@ -396,11 +400,34 @@ const PostDetailView = ({
             <span className="w-2 h-2 bg-rose-400 rounded-full" />
             {t("labelReports")} ({selectedPostReports.length})
           </h3>
-          <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-            {selectedPostReports.map(r => (
-              <div key={r.id.toString()} className="text-sm text-rose-700 bg-white/50 p-3 rounded-xl border border-rose-100 shadow-sm">
-                <span className="font-bold text-rose-400 text-xs block mb-1">{new Date(Number(r.createdAt)*1000).toLocaleDateString()}</span>
-                {r.reason}
+          <div className="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+            {selectedPostReports.map((r, idx) => (
+              <div key={r.id.toString()} className="text-sm text-rose-700 bg-white/50 p-4 rounded-xl border border-rose-100 shadow-sm">
+                <div className="flex justify-between items-start mb-2">
+                  <span className="font-bold text-rose-400 text-xs">{new Date(Number(r.createdAt)*1000).toLocaleDateString()}</span>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${r.isResolved ? 'bg-slate-200 text-slate-500' : 'bg-green-100 text-green-600'}`}>
+                    {r.isResolved ? 'Resolved' : 'Active'}
+                  </span>
+                </div>
+                <p className="mb-3">{r.reason}</p>
+                <div className="flex items-center gap-4 text-xs font-medium text-slate-500 bg-white/60 p-2 rounded-lg">
+                  <span>Stake: {ethers.formatEther(r.amountStaked)} ETH</span>
+                  <span className="text-green-600">Support: {r.supportVotes.toString()}</span>
+                  <span className="text-rose-600">Reject: {r.rejectVotes.toString()}</span>
+                </div>
+                {!r.isResolved && (
+                  <div className="flex gap-2 mt-3">
+                    <button onClick={() => voteOnReport(idx, true)} disabled={loading} className="flex-1 bg-green-500 hover:bg-green-600 text-white py-1.5 rounded-lg text-xs font-bold transition">
+                      Support Report
+                    </button>
+                    <button onClick={() => voteOnReport(idx, false)} disabled={loading} className="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-1.5 rounded-lg text-xs font-bold transition">
+                      Reject Report
+                    </button>
+                    <button onClick={() => resolveReport(idx)} disabled={loading} className="flex-1 bg-slate-500 hover:bg-slate-600 text-white py-1.5 rounded-lg text-xs font-bold transition">
+                      Resolve
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -691,7 +718,8 @@ export default function App() {
       setLoading(true);
       await ensureSepoliaChain();
       const contract = await getContract(true);
-      const tx = await contract.reportPost(selectedPost.id, reportReason);
+      // Send 0.00001 ETH with the transaction
+      const tx = await contract.reportPost(selectedPost.id, reportReason, { value: ethers.parseEther("0.00001") });
       await tx.wait();
       setReportReason('');
       setCurrentView('post-detail');
@@ -699,6 +727,40 @@ export default function App() {
     } catch (err) {
       console.error(err);
       setError("Report failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const voteOnReport = async (reportIndex: number, support: boolean) => {
+    if (!selectedPost) return;
+    try {
+      setLoading(true);
+      await ensureSepoliaChain();
+      const contract = await getContract(true);
+      const tx = await contract.voteOnReport(selectedPost.id, reportIndex, support);
+      await tx.wait();
+      loadPostDetails(selectedPost);
+    } catch (err) {
+      console.error(err);
+      setError("Voting failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resolveReport = async (reportIndex: number) => {
+    if (!selectedPost) return;
+    try {
+      setLoading(true);
+      await ensureSepoliaChain();
+      const contract = await getContract(true);
+      const tx = await contract.resolveReport(selectedPost.id, reportIndex);
+      await tx.wait();
+      loadPostDetails(selectedPost);
+    } catch (err) {
+      console.error(err);
+      setError("Resolution failed");
     } finally {
       setLoading(false);
     }
@@ -942,6 +1004,8 @@ export default function App() {
             newComment={newComment}
             setNewComment={setNewComment}
             submitComment={submitComment}
+            voteOnReport={voteOnReport}
+            resolveReport={resolveReport}
             loading={loading}
           />
         )}
