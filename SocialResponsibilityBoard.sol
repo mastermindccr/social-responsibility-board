@@ -10,6 +10,8 @@ contract SocialResponsibilityBoard {
         uint256 createdAt;
         uint256 dueDate;
         bool isDeleted;
+        uint256 upvotes;
+        uint256 downvotes;
     }
 
     struct Comment {
@@ -36,6 +38,7 @@ contract SocialResponsibilityBoard {
     mapping(uint256 => Comment[]) public postComments;
     mapping(uint256 => Report[]) public postReports;
     mapping(uint256 => mapping(address => bool)) public reportVoters;
+    mapping(uint256 => mapping(address => bool)) public postVoters;
 
     uint256 private _postIds;
     uint256 private _commentIds;
@@ -49,6 +52,7 @@ contract SocialResponsibilityBoard {
     event PostReported(uint256 indexed reportId, uint256 indexed postId, address indexed reporter);
     event ReportVoted(uint256 indexed reportId, address indexed voter, bool support);
     event ReportResolved(uint256 indexed reportId, bool result);
+    event PostVoted(uint256 indexed postId, address indexed voter, bool isUpvote);
 
     constructor() {
         owner = msg.sender;
@@ -65,7 +69,9 @@ contract SocialResponsibilityBoard {
             content: content,
             createdAt: block.timestamp,
             dueDate: dueDate,
-            isDeleted: false
+            isDeleted: false,
+            upvotes: 0,
+            downvotes: 0
         });
 
         posts.push(newPost);
@@ -182,5 +188,21 @@ contract SocialResponsibilityBoard {
 
     function getReportsByPost(uint256 postId) external view returns (Report[] memory) {
         return postReports[postId];
+    }
+
+    function votePost(uint256 postId, bool isUpvote) external {
+        require(postId > 0 && postId <= posts.length, "Post does not exist");
+        require(!postVoters[postId][msg.sender], "Already voted on this post");
+
+        postVoters[postId][msg.sender] = true;
+        Post storage post = posts[postId - 1];
+
+        if (isUpvote) {
+            post.upvotes++;
+        } else {
+            post.downvotes++;
+        }
+
+        emit PostVoted(postId, msg.sender, isUpvote);
     }
 }

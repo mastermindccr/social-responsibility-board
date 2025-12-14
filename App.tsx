@@ -332,6 +332,7 @@ const PostDetailView = ({
   submitComment,
   voteOnReport,
   resolveReport,
+  votePost,
   loading
 }: {
   selectedPost: Post | null,
@@ -345,6 +346,7 @@ const PostDetailView = ({
   submitComment: () => void,
   voteOnReport: (idx: number, support: boolean) => void,
   resolveReport: (idx: number) => void,
+  votePost: (post: Post, isUpvote: boolean) => void,
   loading: boolean
 }) => {
   if (!selectedPost) return null;
@@ -382,7 +384,22 @@ const PostDetailView = ({
           {selectedPost.content}
         </div>
         
-        <div className="flex justify-end pt-4 border-t border-slate-100">
+        <div className="flex justify-between items-center pt-4 border-t border-slate-100">
+          <div className="flex items-center gap-4">
+             <button 
+               onClick={() => votePost(selectedPost, true)}
+               className="flex items-center gap-1 text-slate-500 hover:text-green-600 transition text-sm font-medium bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 hover:border-green-200"
+             >
+               <span>👍</span> {selectedPost.upvotes ? selectedPost.upvotes.toString() : '0'}
+             </button>
+             <button 
+               onClick={() => votePost(selectedPost, false)}
+               className="flex items-center gap-1 text-slate-500 hover:text-rose-600 transition text-sm font-medium bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 hover:border-rose-200"
+             >
+               <span>👎</span> {selectedPost.downvotes ? selectedPost.downvotes.toString() : '0'}
+             </button>
+          </div>
+
           <button 
             onClick={() => setCurrentView('report')}
             className="text-rose-500 hover:text-rose-600 text-xs font-bold uppercase tracking-wide flex items-center gap-2 transition bg-rose-50 px-4 py-2 rounded-lg border border-rose-100 hover:border-rose-200"
@@ -644,7 +661,9 @@ export default function App() {
         content: p.content,
         createdAt: p.createdAt,
         dueDate: p.dueDate,
-        isDeleted: p.isDeleted
+        isDeleted: p.isDeleted,
+        upvotes: p.upvotes,
+        downvotes: p.downvotes
       })).filter((p: Post) => p.id !== 0n);
       setPosts(formattedPosts.reverse());
     } catch (err) {
@@ -761,6 +780,40 @@ export default function App() {
     } catch (err) {
       console.error(err);
       setError("Resolution failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const votePost = async (post: Post, isUpvote: boolean) => {
+    try {
+      setLoading(true);
+      await ensureSepoliaChain();
+      const contract = await getContract(true);
+      const tx = await contract.votePost(post.id, isUpvote);
+      await tx.wait();
+      
+      // Refresh post data
+      if (currentView === 'post-list') {
+        fetchPosts();
+      } else if (currentView === 'post-detail' && selectedPost?.id === post.id) {
+        const p = await contract.getPost(post.id);
+        const updatedPost: Post = {
+          id: p.id,
+          author: p.author,
+          title: p.title,
+          content: p.content,
+          createdAt: p.createdAt,
+          dueDate: p.dueDate,
+          isDeleted: p.isDeleted,
+          upvotes: p.upvotes,
+          downvotes: p.downvotes
+        };
+        loadPostDetails(updatedPost);
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Voting failed");
     } finally {
       setLoading(false);
     }
@@ -931,6 +984,22 @@ export default function App() {
                 </>
               )}
             </div>
+            
+            <div className="flex items-center gap-4 mb-4">
+               <button 
+                 onClick={(e) => { e.stopPropagation(); votePost(post, true); }}
+                 className="flex items-center gap-1 text-slate-500 hover:text-green-600 transition text-sm font-medium bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 hover:border-green-200"
+               >
+                 <span>👍</span> {post.upvotes ? post.upvotes.toString() : '0'}
+               </button>
+               <button 
+                 onClick={(e) => { e.stopPropagation(); votePost(post, false); }}
+                 className="flex items-center gap-1 text-slate-500 hover:text-rose-600 transition text-sm font-medium bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 hover:border-rose-200"
+               >
+                 <span>👎</span> {post.downvotes ? post.downvotes.toString() : '0'}
+               </button>
+            </div>
+
             <button 
               onClick={() => loadPostDetails(post)}
               className="text-sm font-bold text-indigo-500 hover:text-indigo-700 transition flex items-center gap-1"
@@ -1006,6 +1075,7 @@ export default function App() {
             submitComment={submitComment}
             voteOnReport={voteOnReport}
             resolveReport={resolveReport}
+            votePost={votePost}
             loading={loading}
           />
         )}

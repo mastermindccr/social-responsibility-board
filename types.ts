@@ -6,6 +6,8 @@ export interface Post {
   createdAt: bigint;
   dueDate: bigint;
   isDeleted: boolean;
+  upvotes: bigint;
+  downvotes: bigint;
 }
 
 export interface Comment {
