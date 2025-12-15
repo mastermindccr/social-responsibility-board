@@ -556,6 +556,124 @@ const ReportView = ({
   );
 };
 
+const PostListView = ({
+  posts,
+  searchKeyword,
+  setSearchKeyword,
+  t,
+  fetchPosts,
+  loading,
+  votePost,
+  loadPostDetails,
+  formatDate,
+  setCurrentView
+}: {
+  posts: Post[],
+  searchKeyword: string,
+  setSearchKeyword: (v: string) => void,
+  t: (k: UiKey) => string,
+  fetchPosts: () => void,
+  loading: boolean,
+  votePost: (post: Post, isUpvote: boolean) => void,
+  loadPostDetails: (post: Post) => void,
+  formatDate: (timestamp: bigint) => string,
+  setCurrentView: (v: string) => void
+}) => {
+  const filteredPosts = posts.filter(post => 
+    post.title.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+    post.content.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+    post.author.toLowerCase().includes(searchKeyword.toLowerCase())
+  );
+
+  return (
+    <div className="max-w-4xl mx-auto mt-4">
+      <div className="flex flex-col gap-4 mb-8 px-2">
+        <div className="flex justify-between items-center">
+          <h2 className="text-3xl font-bold text-slate-800 tracking-tight">{t("postListTitle")}</h2>
+          <button onClick={fetchPosts} className="text-indigo-500 hover:text-indigo-600 text-sm font-semibold flex items-center gap-1 transition bg-white px-3 py-1.5 rounded-full shadow-sm border border-slate-100">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            Refresh
+          </button>
+        </div>
+        
+        {/* Search Input */}
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search posts..."
+            value={searchKeyword}
+            onChange={(e) => setSearchKeyword(e.target.value)}
+            className="w-full px-4 py-2 rounded-full border border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition pl-10"
+          />
+          <svg className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+      </div>
+      
+      {loading && <div className="text-center text-indigo-600 font-bold py-8 animate-pulse">Loading data...</div>}
+      
+      <div className="grid gap-6">
+        {filteredPosts.map(post => (
+          <div key={post.id.toString()} className="bg-white/70 backdrop-blur-md border border-white/60 p-6 rounded-2xl hover:bg-white/90 hover:shadow-lg transition-all duration-300 group">
+            <div className="flex justify-between items-start mb-3">
+              <h3 className="text-xl font-bold text-slate-800 group-hover:text-indigo-600 transition">{post.title}</h3>
+              <span className="text-xs font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">#{post.id.toString()}</span>
+            </div>
+            <div className="text-xs text-slate-500 mb-5 flex gap-4 flex-wrap items-center">
+              <span className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-full border border-slate-100">
+                <span className="font-semibold">{t("labelAuthor")}:</span> 
+                <span className="font-mono text-indigo-500">{post.author.slice(0,6)}...</span>
+              </span>
+              <span>{t("labelCreatedAt")}: {formatDate(post.createdAt)}</span>
+              {Number(post.dueDate) > 0 && (
+                <>
+                  <span className="w-1 h-1 bg-slate-300 rounded-full" />
+                  <span className="text-orange-500 font-medium">{t("labelDueDate")}: {formatDate(post.dueDate)}</span>
+                </>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-4 mb-4">
+               <button 
+                 onClick={(e) => { e.stopPropagation(); votePost(post, true); }}
+                 className="flex items-center gap-1 text-slate-500 hover:text-green-600 transition text-sm font-medium bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 hover:border-green-200"
+               >
+                 <span>👍</span> {post.upvotes ? post.upvotes.toString() : '0'}
+               </button>
+               <button 
+                 onClick={(e) => { e.stopPropagation(); votePost(post, false); }}
+                 className="flex items-center gap-1 text-slate-500 hover:text-rose-600 transition text-sm font-medium bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 hover:border-rose-200"
+               >
+                 <span>👎</span> {post.downvotes ? post.downvotes.toString() : '0'}
+               </button>
+            </div>
+
+            <button 
+              onClick={() => loadPostDetails(post)}
+              className="text-sm font-bold text-indigo-500 hover:text-indigo-700 transition flex items-center gap-1"
+            >
+              {t("buttonViewDetail")} &rarr;
+            </button>
+          </div>
+        ))}
+        {!loading && posts.length === 0 && (
+          <div className="text-center py-20 bg-white/40 rounded-3xl border-2 border-dashed border-slate-200">
+            <p className="text-slate-400 text-lg">No posts yet.</p>
+            <button onClick={() => setCurrentView('new-post')} className="mt-4 text-indigo-500 font-semibold hover:underline">Create the first one</button>
+          </div>
+        )}
+        {!loading && posts.length > 0 && filteredPosts.length === 0 && (
+          <div className="text-center py-20 bg-white/40 rounded-3xl border-2 border-dashed border-slate-200">
+            <p className="text-slate-400 text-lg">No posts found matching "{searchKeyword}".</p>
+            <button onClick={() => setSearchKeyword('')} className="mt-4 text-indigo-500 font-semibold hover:underline">Clear search</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const { t, language, setLanguage, hasSelectedLanguage, selectLanguage } = useTranslation();
   const [currentView, setCurrentView] = useState('home');
@@ -575,6 +693,7 @@ export default function App() {
   const [newPostDate, setNewPostDate] = useState('');
   const [newComment, setNewComment] = useState('');
   const [reportReason, setReportReason] = useState('');
+  const [searchKeyword, setSearchKeyword] = useState('');
 
   const ensureSepoliaChain = async () => {
     if (!window.ethereum) return;
@@ -952,71 +1071,7 @@ export default function App() {
 
 
 
-  const PostListView = () => (
-    <div className="max-w-4xl mx-auto mt-4">
-      <div className="flex justify-between items-center mb-8 px-2">
-        <h2 className="text-3xl font-bold text-slate-800 tracking-tight">{t("postListTitle")}</h2>
-        <button onClick={fetchPosts} className="text-indigo-500 hover:text-indigo-600 text-sm font-semibold flex items-center gap-1 transition bg-white px-3 py-1.5 rounded-full shadow-sm border border-slate-100">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-          Refresh
-        </button>
-      </div>
-      
-      {loading && <div className="text-center text-indigo-600 font-bold py-8 animate-pulse">Loading data...</div>}
-      
-      <div className="grid gap-6">
-        {posts.map(post => (
-          <div key={post.id.toString()} className="bg-white/70 backdrop-blur-md border border-white/60 p-6 rounded-2xl hover:bg-white/90 hover:shadow-lg transition-all duration-300 group">
-            <div className="flex justify-between items-start mb-3">
-              <h3 className="text-xl font-bold text-slate-800 group-hover:text-indigo-600 transition">{post.title}</h3>
-              <span className="text-xs font-mono text-slate-400 bg-slate-100 px-2 py-1 rounded-md">#{post.id.toString()}</span>
-            </div>
-            <div className="text-xs text-slate-500 mb-5 flex gap-4 flex-wrap items-center">
-              <span className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-full border border-slate-100">
-                <span className="font-semibold">{t("labelAuthor")}:</span> 
-                <span className="font-mono text-indigo-500">{post.author.slice(0,6)}...</span>
-              </span>
-              <span>{t("labelCreatedAt")}: {formatDate(post.createdAt)}</span>
-              {Number(post.dueDate) > 0 && (
-                <>
-                  <span className="w-1 h-1 bg-slate-300 rounded-full" />
-                  <span className="text-orange-500 font-medium">{t("labelDueDate")}: {formatDate(post.dueDate)}</span>
-                </>
-              )}
-            </div>
-            
-            <div className="flex items-center gap-4 mb-4">
-               <button 
-                 onClick={(e) => { e.stopPropagation(); votePost(post, true); }}
-                 className="flex items-center gap-1 text-slate-500 hover:text-green-600 transition text-sm font-medium bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 hover:border-green-200"
-               >
-                 <span>👍</span> {post.upvotes ? post.upvotes.toString() : '0'}
-               </button>
-               <button 
-                 onClick={(e) => { e.stopPropagation(); votePost(post, false); }}
-                 className="flex items-center gap-1 text-slate-500 hover:text-rose-600 transition text-sm font-medium bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 hover:border-rose-200"
-               >
-                 <span>👎</span> {post.downvotes ? post.downvotes.toString() : '0'}
-               </button>
-            </div>
 
-            <button 
-              onClick={() => loadPostDetails(post)}
-              className="text-sm font-bold text-indigo-500 hover:text-indigo-700 transition flex items-center gap-1"
-            >
-              {t("buttonViewDetail")} &rarr;
-            </button>
-          </div>
-        ))}
-        {!loading && posts.length === 0 && (
-          <div className="text-center py-20 bg-white/40 rounded-3xl border-2 border-dashed border-slate-200">
-            <p className="text-slate-400 text-lg">No posts yet.</p>
-            <button onClick={() => setCurrentView('new-post')} className="mt-4 text-indigo-500 font-semibold hover:underline">Create the first one</button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
 
 
 
@@ -1061,7 +1116,20 @@ export default function App() {
             setCurrentView={setCurrentView}
           />
         )}
-        {currentView === 'post-list' && <PostListView />}
+        {currentView === 'post-list' && (
+          <PostListView
+            posts={posts}
+            searchKeyword={searchKeyword}
+            setSearchKeyword={setSearchKeyword}
+            t={t}
+            fetchPosts={fetchPosts}
+            loading={loading}
+            votePost={votePost}
+            loadPostDetails={loadPostDetails}
+            formatDate={formatDate}
+            setCurrentView={setCurrentView}
+          />
+        )}
         {currentView === 'post-detail' && (
           <PostDetailView
             selectedPost={selectedPost}
